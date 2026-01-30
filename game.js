@@ -1,132 +1,114 @@
 const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
 
 const game = {
-    player: { x: 0, y: 0, hp: 100, xp: 0, gold: 0, items: [], level: 1 },
-    map: [],
-    mapSize: 6,
-    currentLevel: 1,
+    p: { x: 0, y: 0, hp: 100, maxHp: 100, atk: 15, gold: 0, lv: 1, potions: 1 },
+    map: [], size: 7, level: 1,
     enemies: [
-        { name: "Gobelin", hp: 30, atk: 10, reward: 20 },
-        { name: "Orc", hp: 60, atk: 15, reward: 50 },
-        { name: "Dragon", hp: 120, atk: 25, reward: 200 }
+        { name: "Slime 💧", hp: 40, atk: 8, gold: 30 },
+        { name: "Squelette 💀", hp: 70, atk: 15, gold: 60 },
+        { name: "Démon 👹", hp: 150, atk: 25, gold: 150 }
     ],
-    riddles: [
-        { q: "Plus j'ai de gardiens, moins je suis gardé. Qui suis-je ?", a: "secret" },
-        { q: "Je commence la nuit et finit le matin. Qui suis-je ?", a: "n" }
-    ],
-    isGameOver: false
+    riddles: [{ q: "J'ai des villes mais pas de maisons. Qui suis-je ?", a: "carte" }],
+    isBusy: false
 };
 
-
 function initMap() {
-    game.map = Array.from({ length: game.mapSize }, () => Array(game.mapSize).fill('.'));
-
-    const events = ['E', 'R', 'H'];
-    for (let i = 0; i < 5; i++) {
-        let rx = Math.floor(Math.random() * game.mapSize);
-        let ry = Math.floor(Math.random() * game.mapSize);
-        if (rx !== 0 || ry !== 0) game.map[ry][rx] = events[Math.floor(Math.random() * events.length)];
-    }
-    game.map[game.mapSize - 1][game.mapSize - 1] = 'S';
-}
-
-function draw() {
-    console.clear();
-    console.log(`--- NIVEAU ${game.currentLevel} | HP: ${game.player.hp} | Gold: ${game.player.gold} | XP: ${game.player.xp} ---`);
-    for (let y = 0; y < game.mapSize; y++) {
-        let row = "";
-        for (let x = 0; x < game.mapSize; x++) {
-            if (x === game.player.x && y === game.player.y) row += " P ";
-            else row += ` ${game.map[y][x]} `;
+    game.map = Array.from({ length: game.size }, () => Array(game.size).fill('ᐧ'));
+    ['👾', '🧩', '🧪', '💰'].forEach(icon => {
+        for(let i=0; i<3; i++) {
+            let rx = Math.floor(Math.random()*game.size), ry = Math.floor(Math.random()*game.size);
+            if (rx+ry !== 0) game.map[ry][rx] = icon;
         }
-        console.log(row);
-    }
-    console.log("\n(Z: Haut, S: Bas, Q: Gauche, D: Droite)");
-}
-
-
-async function handleCombat() {
-    const enemy = { ...game.enemies[Math.min(game.currentLevel - 1, 2)] };
-    console.log(`\n⚔️ Un ${enemy.name} sauvage apparaît !`);
-
-    while (enemy.hp > 0 && game.player.hp > 0) {
-        enemy.hp -= 10 + (game.player.level * 5);
-        if (enemy.hp > 0) game.player.hp -= enemy.atk;
-        console.log(`${enemy.name}: ${enemy.hp}HP | Vous: ${game.player.hp}HP`);
-    }
-
-    if (game.player.hp <= 0) {
-        game.isGameOver = true;
-    } else {
-        console.log(`🎉 Victoire ! +${enemy.reward} Gold.`);
-        game.player.gold += enemy.reward;
-        game.player.xp += 50;
-    }
-}
-
-function handleRiddle() {
-    return new Promise((resolve) => {
-        const riddle = game.riddles[Math.floor(Math.random() * game.riddles.length)];
-        rl.question(`\n🧩 ÉNIGME : ${riddle.q}\nRéponse : `, (answer) => {
-            if (answer.toLowerCase().trim() === riddle.a) {
-                console.log("💎 Correct ! +100 Gold.");
-                game.player.gold += 100;
-            } else {
-                console.log("❌ Faux... Vous perdez 10 HP.");
-                game.player.hp -= 10;
-            }
-            resolve();
-        });
     });
+    game.map[game.size-1][game.size-1] = '🏁';
 }
 
-async function movePlayer(dir) {
-    let nx = game.player.x, ny = game.player.y;
-    if (dir === 'z' && ny > 0) ny--;
-    if (dir === 's' && ny < game.mapSize - 1) ny++;
-    if (dir === 'q' && nx > 0) nx--;
-    if (dir === 'd' && nx < game.mapSize - 1) nx++;
-
-    game.player.x = nx; game.player.y = ny;
-    const cell = game.map[ny][nx];
-
-    if (cell === 'E') {
-        await handleCombat();
-        game.map[ny][nx] = '.';
-    } else if (cell === 'R') {
-        await handleRiddle();
-        game.map[ny][nx] = '.';
-    } else if (cell === 'H') {
-        console.log("❤️ Vous trouvez une potion ! +20 HP.");
-        game.player.hp = Math.min(100, game.player.hp + 20);
-        game.map[ny][nx] = '.';
-    } else if (cell === 'S') {
-        console.log("🏁 Passage au niveau suivant !");
-        game.currentLevel++;
-        game.player.x = 0; game.player.y = 0;
-        initMap();
-    }
-
-    if (game.player.hp <= 0) {
-        console.log("\n💀 GAME OVER. Vous avez péri dans le donjon.");
-        process.exit();
-    }
-
-    draw();
+function draw(msg = "") {
+    console.clear();
+    console.log(`🏰 NODE KNIGHT | Étage: ${game.level} | ❤️ HP: ${game.p.hp}/${game.p.maxHp} | 💪 ATK: ${game.p.atk} | 💰 Or: ${game.p.gold} | 🧪: ${game.p.potions}`);
+    console.log("=" .repeat(40));
+    game.map.forEach((row, y) => {
+        console.log(row.map((cell, x) => (x === game.p.x && y === game.p.y ? '⚔️' : cell)).join('  '));
+    });
+    if (msg) console.log(`\n💬 ${msg}`);
+    if (!game.isBusy) console.log("\n(Z: Haut, S: Bas, Q: Gauche, D: Droite) -> Appuie sur Entrée");
 }
 
+async function fight() {
+    game.isBusy = true;
+    const enemy = { ...game.enemies[Math.min(game.level - 1, 2)] };
+    let effectMsg = `Un ${enemy.name} bloque la route !`;
+
+    while (enemy.hp > 0 && game.p.hp > 0) {
+        draw(`${effectMsg}\n${enemy.name}: ❤️ ${enemy.hp} HP\n\nActions: (1) Attaquer (2) Défendre (3) Potion`);
+        const choice = await new Promise(res => rl.question("Ton choix: ", res));
+
+        let pDamage = game.p.atk + Math.floor(Math.random() * 5);
+        let eDamage = enemy.atk;
+        effectMsg = "";
+
+        if (choice === '1') {
+            enemy.hp -= pDamage;
+            effectMsg += `💥 Tu infliges ${pDamage} dégâts ! `;
+        } else if (choice === '2') {
+            eDamage = Math.floor(eDamage / 3);
+            effectMsg += `🛡️ Tu te protèges ! `;
+        } else if (choice === '3' && game.p.potions > 0) {
+            game.p.hp = Math.min(game.p.maxHp, game.p.hp + 40);
+            game.p.potions--;
+            effectMsg += `🧪 Potion bue ! +40 HP. `;
+        }
+
+        if (enemy.hp > 0) {
+            game.p.hp -= eDamage;
+            effectMsg += `\n${enemy.name} t'inflige ${eDamage} dégâts !`;
+        }
+    }
+
+    if (game.p.hp <= 0) { console.log("💀 Tu es mort..."); process.exit(); }
+    game.p.gold += enemy.gold;
+    game.p.atk += 2;
+    game.isBusy = false;
+    draw(`✨ Victoire ! Tu as ramassé ${enemy.gold} or et gagné en force !`);
+}
+
+async function riddle() {
+    game.isBusy = true;
+    const r = game.riddles[0];
+    const ans = await new Promise(res => rl.question(`🧩 ENIGME: ${r.q}\nRéponse: `, res));
+    if (ans.toLowerCase().includes(r.a)) {
+        game.p.gold += 100;
+        draw("💎 Bravo ! +100 Or.");
+    } else {
+        game.p.hp -= 20;
+        draw("❌ Raté ! Le piège t'inflige 20 dégâts.");
+    }
+    game.isBusy = false;
+}
+
+async function move(d) {
+    if (game.isBusy) return;
+    let nx = game.p.x, ny = game.p.y;
+    if (d === 'z' && ny > 0) ny--; if (d === 's' && ny < game.size-1) ny++;
+    if (d === 'q' && nx > 0) nx--; if (d === 'd' && nx < game.size-1) nx++;
+
+    game.p.x = nx; game.p.y = ny;
+    const tile = game.map[ny][nx];
+    game.map[ny][nx] = 'ᐧ';
+
+    if (tile === '👾') await fight();
+    else if (tile === '🧩') await riddle();
+    else if (tile === '🧪') { game.p.potions++; draw("🧪 Tu trouves une potion !"); }
+    else if (tile === '💰') { game.p.gold += 50; draw("💰 Un sac d'or ! +50"); }
+    else if (tile === '🏁') {
+        game.level++; game.p.maxHp += 20; game.p.hp = game.p.maxHp;
+        game.p.x = 0; game.p.y = 0; initMap();
+        draw("🚪 Étage suivant ! Tes PV sont restaurés.");
+    } else draw();
+}
 
 initMap();
-draw();
-
-rl.on('line', (input) => {
-    const cmd = input.toLowerCase().trim();
-    if (['z', 'q', 's', 'd'].includes(cmd)) {
-        movePlayer(cmd);
-    }
-});
+draw("Bienvenue dans Terminal Dungeon !");
+rl.on('line', (input) => move(input.toLowerCase().trim()));
